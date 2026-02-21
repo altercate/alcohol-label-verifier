@@ -164,6 +164,9 @@ alcohol-label-verifier/
 │   ├── package.json
 │   └── next.config.js
 │
+├── sample-labels/               # Test images for verification
+│   └── README.md                # Instructions for generating test labels
+│
 └── README.md
 ```
 
@@ -335,13 +338,40 @@ The system meets the <5 second requirement for most images.
 
 ## Testing with Sample Labels
 
-You can generate test labels using AI image tools like:
+Sample label images are provided in the `sample-labels/` directory for testing.
+
+### Included Sample Labels
+
+| File | Description | Expected Fields |
+|------|-------------|-----------------|
+| `river_bend_sample_1.png` | River Bend Distilling - Bourbon | Brand, Type, 47% ABV, 750mL, Warning |
+| `pairie_bend_sample_2.png` | Prairie Bend - Whiskey | Brand, Type, ABV, Volume, Warning |
+| `mountain_pass_sample_3.png` | Mountain Pass Distilling - Whisky | Brand, Type, 55% ABV, 750mL, Warning |
+| `silver_creek_sample_4.png` | Silver Creek - Spirits | Brand, Type, ABV, Volume, Warning |
+| `high_ride_sample_5.png` | High Ride - Bourbon | Brand, Type, ABV, Volume, Warning |
+
+### Using the Demo
+
+1. Go to the live demo URL
+2. Upload one of the sample images or your own label image
+3. View the verification results
+
+### Generating Your Own Test Labels
+
+You can create additional test labels using AI image generation tools:
 - DALL-E
 - Midjourney
 - Stable Diffusion
 
 Example prompt:
 > "A realistic alcohol bottle label for 'Old Tom Distillery' Kentucky Straight Bourbon Whiskey, 45% Alc./Vol., 750 mL, with the full government warning text at the bottom, professional product photography"
+
+### Tips for Best Results
+
+1. Use high-resolution images (1000px+ height)
+2. Ensure good contrast between text and background
+3. Avoid glare or shadows on the label
+4. Include the complete government warning text with "GOVERNMENT WARNING:" in all caps
 
 ## License
 
