@@ -169,18 +169,21 @@ alcohol-label-verifier/
 
 ## Deployment
 
-### Backend (Render)
+### Backend (Render) - Docker
 
-1. Create a new Web Service on Render
+1. Create a new **Web Service** on Render
 2. Connect your GitHub repository
-3. Set build command: `pip install -r requirements.txt`
-4. Set start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Add environment variable: `TESSERACT_CMD=/usr/bin/tesseract`
+3. Set **Environment**: Docker
+4. Set **Dockerfile Path**: `backend/Dockerfile`
+5. Set **Docker Context**: `backend`
+6. Deploy! (No environment variables needed - Tesseract is installed in the Docker image)
+
+> **Note:** Free tier instances spin down after 15 minutes of inactivity. First requests may take ~30 seconds to wake up.
 
 ### Frontend (Vercel)
 
 1. Import project from GitHub
-2. Set root directory to `frontend`
+2. Set **Root Directory**: `frontend`
 3. Add environment variable: `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com`
 
 ## Approach
