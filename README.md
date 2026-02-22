@@ -342,19 +342,29 @@ Sample label images are provided in the `sample-labels/` directory for testing.
 
 ### Included Sample Labels
 
-| File | Description | Expected Fields |
-|------|-------------|-----------------|
-| `river_bend_sample_1.png` | River Bend Distilling - Bourbon | Brand, Type, 47% ABV, 750mL, Warning |
-| `pairie_bend_sample_2.png` | Prairie Bend - Whiskey | Brand, Type, ABV, Volume, Warning |
-| `mountain_pass_sample_3.png` | Mountain Pass Distilling - Whisky | Brand, Type, 55% ABV, 750mL, Warning |
-| `silver_creek_sample_4.png` | Silver Creek - Spirits | Brand, Type, ABV, Volume, Warning |
-| `high_ride_sample_5.png` | High Ride - Bourbon | Brand, Type, ABV, Volume, Warning |
+| File | Brand | Type | ABV | Volume |
+|------|-------|------|-----|--------|
+| `river_bend_sample_1.png` | River Bend Distilling Co. | Bourbon | 47% Alc./Vol. | 750 mL |
+| `pairie_bend_sample_2.png` | Prairie Bend Distilling Co. | Straight Rye | 50% Alc./Vol. | 750 mL |
+| `mountain_pass_sample_3.png` | Mountain Pass Distilling Co. | Whisky | 55% Alc./Vol. | 750 mL |
+| `silver_creek_sample_4.png` | Silver Creek Distilling Co. | Whiskey | 48% Alc./Vol. | 750 mL |
+| `high_ride_sample_5.png` | High Ridge Distilling | Single Barrel Bourbon | 53% Alc./Vol. | 750 mL |
+
+All samples include the complete government warning statement per TTB requirements.
 
 ### Using the Demo
 
 1. Go to the live demo URL
 2. Upload one of the sample images or your own label image
 3. View the verification results
+
+### TTB Compliance Reference
+
+The system validates against TTB regulations:
+- **27 CFR 5.51** - Class and type designations
+- **27 CFR 5.63** - Alcohol content statements (note: "ABV" abbreviation is not permitted)
+- **27 CFR 5.47** - Net contents
+- **27 CFR 16.21** - Government warning statement
 
 ### Generating Your Own Test Labels
 

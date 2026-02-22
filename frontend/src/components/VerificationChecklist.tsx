@@ -15,6 +15,8 @@ const FIELD_LABELS: Record<keyof FieldResults, string> = {
   alcohol_content: "Alcohol Content",
   net_contents: "Net Contents",
   government_warning: "Government Warning",
+  bottler_producer: "Bottler/Producer",
+  country_of_origin: "Country of Origin",
 };
 
 export function VerificationChecklist({ result }: VerificationChecklistProps) {

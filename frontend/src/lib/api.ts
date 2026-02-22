@@ -14,6 +14,8 @@ export interface FieldResults {
   alcohol_content: FieldResult;
   net_contents: FieldResult;
   government_warning: FieldResult;
+  bottler_producer: FieldResult;
+  country_of_origin: FieldResult;
 }
 
 export interface Summary {

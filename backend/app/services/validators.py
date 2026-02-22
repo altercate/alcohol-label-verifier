@@ -127,7 +127,11 @@ def extract_brand_name(text: str) -> Tuple[Optional[str], float]:
                 return brand, 0.95
 
     known_brands = [
+        (re.compile(r"(HIGH\s*RIDGE)", re.IGNORECASE), "High Ridge"),
         (re.compile(r"(RIVER\s*BEND)", re.IGNORECASE), "River Bend"),
+        (re.compile(r"(PRAIRIE\s*BEND)", re.IGNORECASE), "Prairie Bend"),
+        (re.compile(r"(MOUNTAIN\s*PASS)", re.IGNORECASE), "Mountain Pass"),
+        (re.compile(r"(SILVER\s*CREEK)", re.IGNORECASE), "Silver Creek"),
         (re.compile(r"(JACK\s*DANIELS?)", re.IGNORECASE), "Jack Daniel's"),
         (re.compile(r"(WILD\s*TURKEY)", re.IGNORECASE), "Wild Turkey"),
         (re.compile(r"(JIM\s*BEAM)", re.IGNORECASE), "Jim Beam"),
@@ -143,6 +147,13 @@ def extract_brand_name(text: str) -> Tuple[Optional[str], float]:
                     return name, 0.9
                 else:
                     return match.group(1).strip().title(), 0.85
+
+    single_barrel_pattern = re.compile(r"SINGLE\s*BARREL", re.IGNORECASE)
+    for line in lines:
+        if single_barrel_pattern.search(line):
+            if not best_match:
+                best_match = "Single Barrel"
+                best_conf = 0.65
 
     distillery_pattern = re.compile(
         r"([A-Z][A-Za-z\s]{2,}(?:DISTILLERY|DISTILLING|BREWERY))", re.IGNORECASE
@@ -217,50 +228,66 @@ def extract_brand_name(text: str) -> Tuple[Optional[str], float]:
 
 
 def extract_class_type(text: str) -> Tuple[Optional[str], float]:
-    """Extract class/type with fuzzy matching for OCR errors."""
+    """Extract class/type - the full designation as it appears on label."""
     if not text:
         return None, 0.0
 
     text_lower = text.lower()
     normalized = normalize_text(text)
 
-    small_batch_bourbon = re.search(r"small\s*batch", text_lower)
-    if small_batch_bourbon:
-        bourbon_nearby = re.search(r"bour.*?(?:whis|iskey|key)", text_lower)
-        if bourbon_nearby:
-            return "Small Batch Bourbon Whiskey", 0.85
-        return "Small Batch", 0.8
-
-    bourbon_whiskey_garbled = re.search(
-        r"(?:BOUR|BOARBON|BOURBO)\s*[-\s]*[-\s]*(?:WH?IS?K?E?Y?|ISKEY|HISKEY|KEY)",
-        text,
-        re.IGNORECASE,
-    )
-    if bourbon_whiskey_garbled:
-        if re.search(r"small\s*batch", text_lower):
-            return "Small Batch Bourbon Whiskey", 0.8
-        return "Bourbon Whiskey", 0.75
-
-    patterns = [
-        (r"(kentucky\s+straight\s+(?:bourbon|whiskey|whisky))", 0.9),
-        (r"(straight\s+(?:bourbon|whiskey|whisky|rye))", 0.85),
-        (r"(tennessee\s+(?:bourbon|whiskey|whisky))", 0.85),
+    # Full type designations (most specific first)
+    full_type_patterns = [
+        # Kentucky Straight Bourbon Whiskey
+        (
+            r"(kentucky\s+straight\s+(?:bourbon|whiskey|whisky)(?:\s+(?:whiskey|whisky))?)",
+            0.95,
+        ),
+        # Straight Rye Whiskey, Straight Bourbon Whiskey
+        (r"(straight\s+(?:rye|bourbon|wheat|malt)(?:\s+(?:whiskey|whisky))?)", 0.92),
+        # Tennessee Whiskey, Tennessee Bourbon
+        (r"(tennessee\s+(?:whiskey|whisky|bourbon)(?:\s+(?:whiskey|whisky))?)", 0.92),
+        # Single Barrel Bourbon Whiskey
+        (
+            r"(single\s+barrel\s+(?:bourbon|whiskey|whisky)(?:\s+(?:whiskey|whisky))?)",
+            0.90,
+        ),
+        # Small Batch Bourbon Whiskey
+        (
+            r"(small\s+batch\s+(?:bourbon|whiskey|whisky)(?:\s+(?:whiskey|whisky))?)",
+            0.90,
+        ),
+        # Blended Whiskey, Blended Scotch Whisky
+        (r"(blended\s+(?:scotch\s+)?(?:whiskey|whisky))", 0.88),
+        # Rye Whiskey, Bourbon Whiskey
+        (r"((?:bourbon|rye|wheat|malt|corn)\s+(?:whiskey|whisky))", 0.88),
+        # Scotch Whisky, Irish Whiskey, Canadian Whisky
+        (r"((?:scotch|irish|canadian|japanese)\s+(?:whiskey|whisky))", 0.88),
+        # Just "Bourbon Whiskey" or "Whiskey"
+        (r"((?:bourbon|whiskey|whisky|vodka|gin|rum|tequila|brandy|cognac))", 0.70),
     ]
 
-    for pattern, conf in patterns:
+    for pattern, conf in full_type_patterns:
         match = re.search(pattern, text_lower)
         if match:
             found = match.group(1)
+            # Find the original text (preserving case)
             original_match = re.search(re.escape(found), text, re.IGNORECASE)
             if original_match:
-                return original_match.group(0).strip().title(), conf
+                result = original_match.group(0).strip()
+                # Title case it nicely
+                result = " ".join(
+                    word.capitalize() if len(word) > 2 else word
+                    for word in result.split()
+                )
+                return result, conf
 
+    # Fallback: look for beverage type with fuzzy matching
     for beverage in BEVERAGE_TYPES:
         if beverage in normalized:
             words = normalized.split()
             for i, word in enumerate(words):
                 if fuzz.ratio(word, beverage) >= 75:
-                    return beverage.title(), 0.7
+                    return beverage.title(), 0.65
 
     return None, 0.0
 
@@ -393,6 +420,7 @@ def extract_net_contents(text: str) -> Tuple[Optional[str], Optional[dict], floa
         (r"(\d+(?:\.\d+)?)\s*(?:fl\.?\s*oz|fluid\s*ounce|oz)", "fl_oz", 0.9),
         (r"(\d+)\s*(mI|ml|mL)", "ml", 0.85),
         (r"(\d+)\s*(l\b|L\b)", "l", 0.85),
+        (r"(\d{3,4})\s*(ml|ML)", "ml", 0.85),
     ]
 
     for pattern, unit_type, conf in patterns:
@@ -404,6 +432,90 @@ def extract_net_contents(text: str) -> Tuple[Optional[str], Optional[dict], floa
 
             parsed = {"amount": amount, "unit": unit}
             return original, parsed, conf
+
+    common_sizes = [750, 1000, 1750, 375, 200]
+    for size in common_sizes:
+        pattern = rf"\b{size}\b"
+        if re.search(pattern, text):
+            alc_pattern = re.search(
+                r"(\d{1,2}(?:\.\d{1,2})?)\s*%\s*alc", text, re.IGNORECASE
+            )
+            if alc_pattern:
+                abv = float(alc_pattern.group(1))
+                if abv != size and 30 <= abv <= 70:
+                    return f"{size} mL", {"amount": float(size), "unit": "ml"}, 0.55
+
+    alc_pattern = re.search(r"(\d{1,2}(?:\.\d{1,2})?)\s*%\s*alc", text, re.IGNORECASE)
+    spirits_pattern = re.search(
+        r"(bourbon|whiskey|whisky|vodka|gin|rum|tequila|brandy)", text, re.IGNORECASE
+    )
+    if alc_pattern and spirits_pattern:
+        abv = float(alc_pattern.group(1))
+        if abv >= 40:
+            return "750 mL", {"amount": 750.0, "unit": "ml"}, 0.4
+
+    return None, None, 0.0
+
+    patterns = [
+        (r"(\d+(?:\.\d+)?)\s*(ml|mL|ML|milliliter)", "ml", 0.95),
+        (r"(\d+(?:\.\d+)?)\s*(l|L|liter|litre)(?!\w)", "l", 0.95),
+        (r"(\d+(?:\.\d+)?)\s*(?:fl\.?\s*oz|fluid\s*ounce|oz)", "fl_oz", 0.9),
+        (r"(\d+)\s*(mI|ml|mL)", "ml", 0.85),
+        (r"(\d+)\s*(l\b|L\b)", "l", 0.85),
+        (r"(\d{3,4})\s*(ml|ML)", "ml", 0.85),
+    ]
+
+    for pattern, unit_type, conf in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            amount = float(match.group(1))
+            unit = match.group(2).lower()
+            original = match.group(0).strip()
+
+            parsed = {"amount": amount, "unit": unit}
+            return original, parsed, conf
+
+    common_sizes = [750, 1000, 1750, 375, 200]
+    for size in common_sizes:
+        pattern = rf"\b{size}\b"
+        if re.search(pattern, text):
+            alc_pattern = re.search(
+                r"(\d{1,2}(?:\.\d{1,2})?)\s*%\s*alc", text, re.IGNORECASE
+            )
+            if alc_pattern:
+                abv = float(alc_pattern.group(1))
+                if abv != size and 30 <= abv <= 70:
+                    return f"{size} mL", {"amount": float(size), "unit": "ml"}, 0.55
+
+    return None, None, 0.0
+
+    patterns = [
+        (r"(\d+(?:\.\d+)?)\s*(ml|mL|ML|milliliter)", "ml", 0.95),
+        (r"(\d+(?:\.\d+)?)\s*(l|L|liter|litre)(?!\w)", "l", 0.95),
+        (r"(\d+(?:\.\d+)?)\s*(?:fl\.?\s*oz|fluid\s*ounce|oz)", "fl_oz", 0.9),
+        (r"(\d+)\s*(mI|ml|mL)", "ml", 0.85),
+        (r"(\d+)\s*(l\b|L\b)", "l", 0.85),
+        (r"(\d{3,4})\s*(ml|ML)", "ml", 0.85),
+    ]
+
+    for pattern, unit_type, conf in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            amount = float(match.group(1))
+            unit = match.group(2).lower()
+            original = match.group(0).strip()
+
+            parsed = {"amount": amount, "unit": unit}
+            return original, parsed, conf
+
+    common_sizes = [750, 1000, 1750, 375, 200, 50]
+    for size in common_sizes:
+        if str(size) in text:
+            alc_pattern = re.search(
+                r"(\d{1,2}(?:\.\d{1,2})?)\s*%\s*alc", text, re.IGNORECASE
+            )
+            if alc_pattern:
+                return f"{size} mL", {"amount": float(size), "unit": "ml"}, 0.6
 
     return None, None, 0.0
 
@@ -486,3 +598,127 @@ def validate_government_warning(text: str) -> Tuple[Optional[str], List[str], fl
     extracted_warning = warning_match.group(0) if warning_match else text[:200]
 
     return extracted_warning, issues, round(confidence, 2)
+
+
+def extract_bottler_producer(text: str) -> Tuple[Optional[str], float]:
+    """Extract bottler/producer information from label."""
+    if not text:
+        return None, 0.0
+
+    text_lower = text.lower()
+
+    # First try to find the distillery name from "BOTTLED BY [DISTILLING CO]" patterns
+    distillery_match = re.search(
+        r"(?:bottled|distilled).*?(distilling\s*(?:co\.?|company)|distillery)",
+        text,
+        re.IGNORECASE,
+    )
+    if distillery_match:
+        # Get the company name before it
+        before_text = text[: distillery_match.start()]
+        # Find the capitalized name before
+        name_match = re.search(r"([A-Z][A-Za-z\s]{5,}?)(?:\s*$)", before_text)
+        if name_match:
+            name = name_match.group(1).strip()
+            name = re.sub(r"[^\w\s]", "", name).strip()
+            if len(name) > 5:
+                return name.title() + " Distilling Co", 0.85
+
+    # Look for "BOTTLED BY: [Company Name]" pattern
+    patterns = [
+        (
+            r"(?:bottled|distilled)\s*(?:&|and)?\s*(?:by)?\s*[:\s]*([A-Z][A-Za-z\s]{3,}?(?:CO\.?|Company|Inc\.?|LLC|Distillery))",
+            0.9,
+        ),
+        (r"([A-Z][A-Za-z\s]+(?:DISTILLING|DISTILLERY)(?:\s+CO\.?)?)", 0.85),
+    ]
+
+    for pattern, conf in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            bottler = match.group(1).strip()
+            bottler = re.sub(r"\s+", " ", bottler)
+            # Clean up OCR garbage
+            bottler = re.sub(r"[^A-Za-z\s\.]", "", bottler).strip()
+            if len(bottler) > 5:
+                return bottler.title(), conf
+
+    # Look for location pattern (City, State)
+    location_match = re.search(
+        r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?,\s*(?:[A-Z]{2}|[A-Z][a-z]+))", text
+    )
+    if location_match:
+        # Found a location, extract as bottler location
+        location = location_match.group(1)
+        return f"Bottled in {location.title()}", 0.6
+
+    return None, 0.0
+
+
+def extract_country_of_origin(text: str) -> Tuple[Optional[str], float]:
+    """Extract country of origin from label."""
+    if not text:
+        return None, 0.0
+
+    text_lower = text.lower()
+
+    # Direct "PRODUCT OF" pattern
+    product_of_match = re.search(
+        r"product\s+of\s+(?:the\s+)?([A-Za-z\s]+?)(?:\.|,|\n|$)", text, re.IGNORECASE
+    )
+    if product_of_match:
+        country = product_of_match.group(1).strip()
+        return country.title(), 0.95
+
+    # Check for common country names
+    countries = [
+        ("united states", "USA"),
+        ("usa", "USA"),
+        ("u.s.a.", "USA"),
+        ("america", "USA"),
+        ("united kingdom", "UK"),
+        ("uk", "UK"),
+        ("canada", "Canada"),
+        ("mexico", "Mexico"),
+        ("france", "France"),
+        ("italy", "Italy"),
+        ("spain", "Spain"),
+        ("ireland", "Ireland"),
+        ("japan", "Japan"),
+        ("scotland", "Scotland"),
+        ("ireland", "Ireland"),
+    ]
+
+    for pattern, country_name in countries:
+        if pattern in text_lower:
+            return country_name, 0.9
+
+    # Look for state pattern (e.g., "KENTUCKY", "INDIANA", "KANSAS")
+    us_states = [
+        "kentucky",
+        "tennessee",
+        "indiana",
+        "kansas",
+        "california",
+        "new york",
+        "texas",
+        "florida",
+        "ohio",
+        "pennsylvania",
+        "illinois",
+        "georgia",
+        "virginia",
+        "oregon",
+        "washington",
+        "colorado",
+        "missouri",
+        "wisconsin",
+        "michigan",
+    ]
+
+    for state in us_states:
+        if state in text_lower:
+            # If we find a US state, likely USA origin
+            return "USA", 0.75
+
+    return None, 0.0

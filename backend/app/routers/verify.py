@@ -19,6 +19,8 @@ from app.services.validators import (
     extract_alcohol_content,
     extract_net_contents,
     validate_government_warning,
+    extract_bottler_producer,
+    extract_country_of_origin,
 )
 from app.config import settings
 
@@ -48,6 +50,8 @@ def process_single_image(file: UploadFile) -> ImageResult:
     alc_val, alc_parsed, alc_conf = extract_alcohol_content(raw_text)
     net_val, net_parsed, net_conf = extract_net_contents(raw_text)
     warn_val, warn_issues, warn_conf = validate_government_warning(raw_text)
+    bottler_val, bottler_conf = extract_bottler_producer(raw_text)
+    origin_val, origin_conf = extract_country_of_origin(raw_text)
 
     def make_field_result(
         value, confidence, parsed_value=None, issues=None
@@ -77,6 +81,8 @@ def process_single_image(file: UploadFile) -> ImageResult:
     warn_result = make_field_result(
         warn_val, warn_conf, issues=warn_issues if warn_issues else None
     )
+    bottler_result = make_field_result(bottler_val, bottler_conf)
+    origin_result = make_field_result(origin_val, origin_conf)
 
     fields = FieldResults(
         brand_name=brand_result,
@@ -84,22 +90,24 @@ def process_single_image(file: UploadFile) -> ImageResult:
         alcohol_content=alc_result,
         net_contents=net_result,
         government_warning=warn_result,
+        bottler_producer=bottler_result,
+        country_of_origin=origin_result,
     )
 
-    detected = sum(
-        1
-        for f in [brand_result, class_result, alc_result, net_result, warn_result]
-        if f.status == FieldStatus.DETECTED
-    )
-    missing = sum(
-        1
-        for f in [brand_result, class_result, alc_result, net_result, warn_result]
-        if f.status == FieldStatus.MISSING
-    )
+    all_fields = [
+        brand_result,
+        class_result,
+        alc_result,
+        net_result,
+        warn_result,
+        bottler_result,
+        origin_result,
+    ]
+
+    detected = sum(1 for f in all_fields if f.status == FieldStatus.DETECTED)
+    missing = sum(1 for f in all_fields if f.status == FieldStatus.MISSING)
     formatting_issues = sum(
-        1
-        for f in [brand_result, class_result, alc_result, net_result, warn_result]
-        if f.status == FieldStatus.FORMATTING_ISSUE
+        1 for f in all_fields if f.status == FieldStatus.FORMATTING_ISSUE
     )
 
     total_time = int((time.time() - start_time) * 1000)
